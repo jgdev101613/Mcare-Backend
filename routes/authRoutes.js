@@ -11,7 +11,10 @@ import Group from "../models/Group.js";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 import QRCode from "qrcode";
-import { sendWelcomeEmail } from "../lib/mailer.js";
+import {
+  sendPasswordResetNotification,
+  sendWelcomeEmail,
+} from "../lib/mailer.js";
 
 // Authentication
 import protectRoutes from "../middleware/auth.middleware.js";
@@ -377,6 +380,35 @@ authRoutes.put(
       });
     } catch (error) {
       console.error("❌ Update password error:", error.message);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+authRoutes.put(
+  "/update/:id/resetpassword",
+  protectRoutes,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+
+      user.password = "mcare0613"; // Default Password
+      await user.save();
+
+      await sendPasswordResetNotification(user);
+
+      res.json({
+        success: true,
+        message: "Password reset successfully",
+      });
+    } catch (error) {
+      console.error("❌ Reset password error:", error.message);
       res.status(500).json({ success: false, message: "Server error" });
     }
   }
