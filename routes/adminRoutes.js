@@ -17,6 +17,8 @@ import User from "../models/User.js";
 import protectRoutes from "../middleware/auth.middleware.js";
 import adminOnly from "../middleware/auth.admin.js";
 
+import { format } from "date-fns-tz";
+
 // Mailer
 import {
   sendDutyNotification,
@@ -693,21 +695,29 @@ adminRoutes.get(
     try {
       const { schoolId } = req.params;
 
+      // 🔎 Find student
       const user = await User.findOne({ schoolId });
       if (!user) {
-        return res
-          .status(404)
-          .json({ success: false, message: "User not found." });
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
       }
 
-      const today = new Date();
-      const dateOnly = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate()
-      ); // midnight reset
+      const now = new Date();
 
-      // Check if attendance already exists
+      // 📅 Convert to Philippine calendar date (midnight reset)
+      const manilaDateStr = format(now, "yyyy-MM-dd", {
+        timeZone: "Asia/Manila",
+      });
+
+      // Store as a Date object (UTC midnight that represents Manila's day)
+      const dateOnly = new Date(`${manilaDateStr}T00:00:00.000+08:00`);
+
+      // ⏰ Philippine time string (HH:mm:ss)
+      const phTime = format(now, "HH:mm:ss", { timeZone: "Asia/Manila" });
+
+      // 🔎 Check if already marked
       const existingAttendance = await Attendance.findOne({
         schoolId,
         date: dateOnly,
@@ -720,19 +730,20 @@ adminRoutes.get(
         });
       }
 
-      // Save new attendance
+      console.log(phTime);
+
+      // 📝 Save new attendance
       const attendance = new Attendance({
         user: user._id,
         schoolId,
-        date: dateOnly,
-        timeIn: today.toTimeString().split(" ")[0], // HH:mm:ss
+        date: dateOnly, // ✅ Manila’s calendar day
+        timeIn: phTime, // ✅ Always PH time string
       });
 
       await attendance.save();
 
       console.log(
-        "✅ Marked User(" + schoolId + ") as present: ",
-        req.originalUrl
+        `✅ Marked User(${schoolId}) as present at ${phTime} (Philippines time)`
       );
 
       res.status(201).json({
@@ -741,13 +752,16 @@ adminRoutes.get(
         data: {
           name: user.name,
           schoolId: user.schoolId,
-          date: attendance.date,
+          date: manilaDateStr, // return clean PH date string to frontend
           timeIn: attendance.timeIn,
         },
       });
     } catch (error) {
       console.error("Error marking attendance:", error);
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
     }
   }
 );
