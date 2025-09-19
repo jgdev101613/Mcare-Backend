@@ -54,6 +54,33 @@ adminRoutes.get(
   }
 );
 
+/** Fetch A Student and their information **/
+adminRoutes.get(
+  "/students/fetchStudent/:id",
+  protectRoutes,
+  adminOnly,
+  async (req, res) => {
+    const { id } = req.params;
+    try {
+      const user = await User.find({ schoolId: id })
+        .select("-password")
+        .populate("group", "name") // optional: show group name
+        .lean();
+
+      res.status(200).json({
+        success: true,
+        user,
+      });
+    } catch (error) {
+      console.error("Error in GET /members:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Server error.",
+      });
+    }
+  }
+);
+
 /** Edit Student Information **/
 adminRoutes.put(
   "/students/update/:id",
