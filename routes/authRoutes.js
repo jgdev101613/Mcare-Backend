@@ -14,6 +14,7 @@ import QRCode from "qrcode";
 import {
   sendPasswordResetNotification,
   sendWelcomeEmail,
+  sendWelcomeEmailProf,
 } from "../lib/mailer.js";
 
 // Authentication
@@ -88,16 +89,18 @@ authRoutes.post("/register", async (req, res) => {
     // --- VALIDATIONS --- //
     const hasSpace = /\s/.test(username);
 
+    if (role !== "professor") {
+      if (!isNumber(Number(year))) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Year should be a number." });
+      }
+    }
+
     if (hasSpace) {
       return res
         .status(400)
         .json({ success: false, message: "Username can't have spaces." });
-    }
-
-    if (!isNumber(Number(year))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Year should be a number." });
     }
 
     // Check If Fields Are Empty
@@ -155,6 +158,8 @@ authRoutes.post("/register", async (req, res) => {
     // Generate QR Code for School ID
     const qrCode = await generateQRCode(schoolId);
 
+    const status = role === "professor" ? false : true;
+
     // -- CREATE USER ---
     const user = new User({
       schoolId,
@@ -165,6 +170,7 @@ authRoutes.post("/register", async (req, res) => {
       year,
       section,
       course,
+      status,
       department,
       profileImage,
       qrCode,
@@ -177,9 +183,15 @@ authRoutes.post("/register", async (req, res) => {
     const token = generateToken(user._id);
 
     // 📧 Send welcome email (don’t block the response)
-    sendWelcomeEmail(user).catch((err) => {
-      console.error("Failed to send welcome email:", err);
-    });
+    if (role === "professor") {
+      sendWelcomeEmailProf(user).catch((err) => {
+        console.error("Failed to send welcome email:", err);
+      });
+    } else {
+      sendWelcomeEmail(user).catch((err) => {
+        console.error("Failed to send welcome email:", err);
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -238,6 +250,13 @@ authRoutes.post("/login", async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Password does not matched." });
+
+    const status = user.status;
+    if (!status) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Account not verified yet." });
+    }
 
     // -- LOGGED IN USER --
     // Get The Token From JWT

@@ -20,6 +20,11 @@ const selfOrAdmin = async (req, res, next) => {
     return next();
   }
 
+  // ✅ allow professor
+  if (loggedInUser.role === "professor") {
+    return next();
+  }
+
   // ✅ if checking by userId
   if (id && loggedInUser._id.toString() === id.toString()) {
     return next();
@@ -33,7 +38,10 @@ const selfOrAdmin = async (req, res, next) => {
   // ✅ if checking by schoolId
   if (schoolId) {
     const targetUser = await User.findOne({ schoolId }).select("_id");
-    if (targetUser && targetUser._id.toString() === loggedInUser._id.toString()) {
+    if (
+      targetUser &&
+      targetUser._id.toString() === loggedInUser._id.toString()
+    ) {
       return next();
     }
   }

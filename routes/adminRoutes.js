@@ -23,6 +23,7 @@ import { format } from "date-fns-tz";
 import {
   sendDutyNotification,
   sendUpdateDutyNotification,
+  sendVerifiedEmailProf,
 } from "../lib/mailer.js";
 
 const adminRoutes = express.Router();
@@ -35,7 +36,7 @@ adminRoutes.get(
   adminOnly,
   async (req, res) => {
     try {
-      const users = await User.find({ role: "user" })
+      const users = await User.find()
         .select("-password")
         .populate("group", "name") // optional: show group name
         .lean();
@@ -829,5 +830,38 @@ adminRoutes.get(
 );
 
 // ********** END: ATTENDANCE ENDPOINTS ********** //
+
+// VERIFY
+adminRoutes.put(
+  "/professor/verify/:id",
+  protectRoutes,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const user = await User.findByIdAndUpdate(
+        req.params.id,
+        { status: true, role: "admin" },
+        { new: true }
+      ).select("-password");
+
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+
+      sendVerifiedEmailProf(user);
+
+      res.json({
+        success: true,
+        message: "Verify successfully",
+        data: user,
+      });
+    } catch (error) {
+      console.error("❌ Verify error:", error.message);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
 
 export default adminRoutes;

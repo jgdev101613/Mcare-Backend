@@ -10,14 +10,14 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
-    schoolId: {type: String, required: true},
+    schoolId: { type: String, required: true },
     username: { type: String, required: true },
-    qrCode: {type: String, required: true},
-    name: {type: String},
-    section: {type: String},
-    course: {type: String},
-    year: {type: Number},
-    department: {type: String},
+    qrCode: { type: String, required: true },
+    name: { type: String },
+    section: { type: String },
+    course: { type: String },
+    year: { type: Number },
+    department: { type: String },
     email: { type: String, required: true, unique: true },
     group: {
       type: mongoose.Schema.Types.ObjectId,
@@ -25,8 +25,12 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "user"],
+      enum: ["admin", "user", "professor"],
       default: "user",
+    },
+    status: {
+      type: Boolean,
+      default: true,
     },
     password: { type: String, requried: true, minlength: 6 },
     profileImage: { type: String, default: "" },
