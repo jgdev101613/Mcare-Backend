@@ -521,15 +521,20 @@ authRoutes.get("/members/user", protectRoutes, adminOnly, async (req, res) => {
   try {
     const { search } = req.query;
 
-    let query = {};
+    let query = { role: { $ne: "admin" } }; // always exclude admins
     if (search && search.trim() !== "") {
       const regex = new RegExp(search, "i");
       query = {
-        $or: [
-          { username: regex },
-          { email: regex },
-          { schoolId: regex },
-          { name: regex },
+        $and: [
+          { role: { $ne: "admin" } }, // still exclude admins
+          {
+            $or: [
+              { username: regex },
+              { email: regex },
+              { schoolId: regex },
+              { name: regex },
+            ],
+          },
         ],
       };
     }
