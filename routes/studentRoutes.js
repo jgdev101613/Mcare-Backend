@@ -10,6 +10,7 @@ import express from "express";
 // Models
 import Attendance from "../models/Attendance.js";
 import Duty from "../models/Duty.js";
+import Group from "../models/Group.js";
 import User from "../models/User.js";
 
 // Authentication
@@ -67,6 +68,58 @@ studentRoutes.get(
     }
   }
 );
+
+studentRoutes.get(
+  "/attendance/fetchAllAttendance",
+  protectRoutes,
+  selfOrAdmin,
+  async (req, res) => {
+    try {
+      // 1. Fetch all attendance with user populated (so we can access section)
+      const attendances = await Attendance.find({})
+        .sort({ date: -1 }) // latest first
+        .select("-__v")
+        .populate("user", "_id username schoolId section") // include section
+        .lean();
+
+      if (!attendances.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No attendance records found.",
+        });
+      }
+
+      // 2. Group by section
+      const groupedBySection = {};
+
+      attendances.forEach((record) => {
+        const section = record.user?.section || "Unknown Section";
+        if (!groupedBySection[section]) {
+          groupedBySection[section] = [];
+        }
+        groupedBySection[section].push(record);
+      });
+
+      // 3. Transform to array (cleaner response like your duties/groups)
+      const result = Object.entries(groupedBySection).map(
+        ([sectionName, records]) => ({
+          section: sectionName,
+          records,
+        })
+      );
+
+      res.status(200).json({
+        success: true,
+        message:
+          "All attendance records grouped by section retrieved successfully.",
+        sections: result,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching attendance by section:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
 // ********** END: ATTENDANCE ENDPOINTS ********** //
 
 // ********** START: DUTIES ENDPOINTS ********** //
@@ -115,6 +168,57 @@ studentRoutes.get(
       });
     } catch (error) {
       console.error("Error fetching user duties:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
+studentRoutes.get(
+  "/duties/fetchAllDuties",
+  protectRoutes,
+  selfOrAdmin,
+  async (req, res) => {
+    try {
+      // 1. Find all groups, with members populated
+      const groups = await Group.find()
+        .populate("members", "name email schoolId")
+        .lean();
+
+      if (!groups || groups.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No groups found.",
+        });
+      }
+
+      // 2. Fetch all duties and map them to their group
+      const duties = await Duty.find()
+        .populate("group", "name") // only populate group name
+        .sort({ date: 1 })
+        .lean();
+
+      // 3. Structure response: group details + duties belonging to it
+      const result = groups.map((group) => {
+        const groupDuties = duties.filter(
+          (duty) =>
+            duty.group && duty.group._id.toString() === group._id.toString()
+        );
+
+        return {
+          id: group._id,
+          name: group.name,
+          members: group.members,
+          duties: groupDuties,
+        };
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "All groups' duties retrieved successfully.",
+        groups: result,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching all duties:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   }
