@@ -223,6 +223,52 @@ studentRoutes.get(
     }
   }
 );
+
+studentRoutes.get(
+  "/duties/fetchAllDutiesByArea",
+  protectRoutes,
+  selfOrAdmin,
+  async (req, res) => {
+    try {
+      // 1. Fetch all duties and populate needed fields
+      const duties = await Duty.find()
+        .populate("group", "name") // optional: include group name
+        .sort({ date: 1 })
+        .lean();
+
+      if (!duties || duties.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No duties found.",
+        });
+      }
+
+      // 2. Group duties by area
+      const dutiesByArea = duties.reduce((acc, duty) => {
+        const area = duty.area || "Unassigned"; // handle missing area
+        if (!acc[area]) acc[area] = [];
+        acc[area].push(duty);
+        return acc;
+      }, {});
+
+      // 3. Structure response for frontend
+      const result = Object.keys(dutiesByArea).map((area) => ({
+        area,
+        duties: dutiesByArea[area],
+      }));
+
+      res.status(200).json({
+        success: true,
+        message: "All duties grouped by area retrieved successfully.",
+        areas: result,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching duties by area:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
 // ********** END: DUTIES ENDPOINTS ********** //
 
 // ********** START: UPDATE USER ENDPOINTS ********** //
