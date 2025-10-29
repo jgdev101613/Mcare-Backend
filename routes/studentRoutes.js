@@ -75,11 +75,11 @@ studentRoutes.get(
   selfOrAdmin,
   async (req, res) => {
     try {
-      // 1. Fetch all attendance with user populated (so we can access section)
-      const attendances = await Attendance.find({})
+      // 📦 Fetch all attendance records, newest first
+      const attendances = await Attendance.find({ attendanceType: "Class" })
         .sort({ date: -1 }) // latest first
         .select("-__v")
-        .populate("user", "_id username schoolId section") // include section
+        .populate("user", "_id username name year schoolId section") // still populate user info
         .lean();
 
       if (!attendances.length) {
@@ -89,37 +89,59 @@ studentRoutes.get(
         });
       }
 
-      // 2. Group by section
-      const groupedBySection = {};
-
-      attendances.forEach((record) => {
-        const section = record.user?.section || "Unknown Section";
-        if (!groupedBySection[section]) {
-          groupedBySection[section] = [];
-        }
-        groupedBySection[section].push(record);
-      });
-
-      // 3. Transform to array (cleaner response like your duties/groups)
-      const result = Object.entries(groupedBySection).map(
-        ([sectionName, records]) => ({
-          section: sectionName,
-          records,
-        })
-      );
-
+      // ✅ Direct response, no grouping
       res.status(200).json({
         success: true,
-        message:
-          "All attendance records grouped by section retrieved successfully.",
-        sections: result,
+        message: "All attendance records retrieved successfully.",
+        attendances, // return full list
       });
     } catch (error) {
-      console.error("❌ Error fetching attendance by section:", error);
-      res.status(500).json({ success: false, message: error.message });
+      console.error("❌ Error fetching all attendance:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
     }
   }
 );
+
+studentRoutes.get(
+  "/attendance/fetchAllDutyAttendance",
+  protectRoutes,
+  selfOrAdmin,
+  async (req, res) => {
+    try {
+      // 📦 Fetch all attendance records, newest first
+      const attendances = await Attendance.find({ attendanceType: "Duty" })
+        .sort({ date: -1 }) // latest first
+        .select("-__v")
+        .populate("user", "_id username name year schoolId section")
+        .populate("group", "name") // still populate user info
+        .lean();
+
+      if (!attendances.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No attendance records found.",
+        });
+      }
+
+      // ✅ Direct response, no grouping
+      res.status(200).json({
+        success: true,
+        message: "All attendance records retrieved successfully.",
+        attendances, // return full list
+      });
+    } catch (error) {
+      console.error("❌ Error fetching all attendance:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+);
+
 // ********** END: ATTENDANCE ENDPOINTS ********** //
 
 // ********** START: DUTIES ENDPOINTS ********** //

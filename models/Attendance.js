@@ -15,12 +15,21 @@ const attendanceSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    schoolId: { 
-      type: String, 
-      required: true 
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Group",
+      required: true,
+    },
+    schoolId: {
+      type: String,
+      required: true,
     },
     date: {
       type: Date,
+      required: true,
+    },
+    attendanceType: {
+      type: String,
       required: true,
     },
     timeIn: {
@@ -32,7 +41,10 @@ const attendanceSchema = new mongoose.Schema(
 );
 
 // Ensure unique attendance per user per day
-attendanceSchema.index({ schoolId: 1, date: 1 }, { unique: true });
+attendanceSchema.index(
+  { schoolId: 1, date: 1, attendanceType: 1 },
+  { unique: true }
+);
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 export default Attendance;

@@ -90,8 +90,16 @@ adminRoutes.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { schoolId, username, name, section, course, department, role } =
-        req.body;
+      const {
+        schoolId,
+        username,
+        name,
+        section,
+        year,
+        course,
+        department,
+        role,
+      } = req.body;
 
       // Build update object dynamically (only include non-empty fields)
       const updateData = {};
@@ -100,6 +108,7 @@ adminRoutes.put(
       if (username && username.trim() !== "")
         updateData.username = username.trim();
       if (name && name.trim() !== "") updateData.name = name.trim();
+      if (year && year.trim() !== "") updateData.year = year.trim();
       if (section && section.trim() !== "") updateData.section = section.trim();
       if (course && course.trim() !== "") updateData.course = course.trim();
       if (department && department.trim() !== "")
@@ -719,15 +728,32 @@ adminRoutes.delete(
 
 // ********** START: ATTENDANCE ENDPOINTS ********** //
 /** Mark A Student Attendance **/
-adminRoutes.get(
-  "/attendance/mark/:schoolId",
+adminRoutes.post(
+  "/attendance/mark",
   protectRoutes,
   adminOnly,
   async (req, res) => {
     try {
-      const { schoolId } = req.params;
+      const { schoolId, attendanceType } = req.body;
 
-      // 🔎 Find student
+      // ✅ Validate input
+      if (!schoolId || !attendanceType) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields: schoolId or attendanceType.",
+        });
+      }
+
+      // ✅ Validate attendance type
+      const validTypes = ["Class", "Duty"];
+      if (!validTypes.includes(attendanceType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid attendance type. Must be 'Class' or 'Duty'.",
+        });
+      }
+
+      // 🔎 Find user by schoolId
       const user = await User.findOne({ schoolId });
       if (!user) {
         return res.status(404).json({
@@ -736,56 +762,67 @@ adminRoutes.get(
         });
       }
 
+      // ✅ Check if user has group assigned
+      if (!user.group) {
+        return res.status(400).json({
+          success: false,
+          message: "User is not assigned to any group.",
+        });
+      }
+
       const now = new Date();
 
-      // 📅 Convert to Philippine calendar date (midnight reset)
+      // 📅 Convert to Philippine date
       const manilaDateStr = format(now, "yyyy-MM-dd", {
         timeZone: "Asia/Manila",
       });
 
-      // Store as a Date object (UTC midnight that represents Manila's day)
+      // Store as Date object (UTC midnight representing Manila's day)
       const dateOnly = new Date(`${manilaDateStr}T00:00:00.000+08:00`);
 
       // ⏰ Philippine time string (HH:mm:ss)
       const phTime = format(now, "HH:mm:ss", { timeZone: "Asia/Manila" });
 
-      // 🔎 Check if already marked
+      // 🔎 Check if attendance already exists for this type today
       const existingAttendance = await Attendance.findOne({
         schoolId,
         date: dateOnly,
+        attendanceType,
       });
 
       if (existingAttendance) {
         return res.status(400).json({
           success: false,
-          message: "Student already has attendance today",
+          message: `Student already has ${attendanceType} attendance today.`,
         });
       }
-
-      console.log(phTime);
 
       // 📝 Save new attendance
       const attendance = new Attendance({
         user: user._id,
+        group: user.group, // ✅ Corrected: get group ID from user document
         schoolId,
-        date: dateOnly, // ✅ Manila’s calendar day
-        timeIn: phTime, // ✅ Always PH time string
+        date: dateOnly,
+        attendanceType,
+        timeIn: phTime,
       });
 
       await attendance.save();
 
       console.log(
-        `✅ Marked User(${schoolId}) as present at ${phTime} (Philippines time)`
+        `✅ Marked ${attendanceType} attendance for ${schoolId} at ${phTime} (PH time)`
       );
 
       res.status(201).json({
         success: true,
-        message: "Attendance marked successfully!",
+        message: `${attendanceType} attendance marked successfully!`,
         data: {
           name: user.name,
           schoolId: user.schoolId,
-          date: manilaDateStr, // return clean PH date string to frontend
+          date: manilaDateStr,
           timeIn: attendance.timeIn,
+          type: attendanceType,
+          group: user.group, // optional, if you want to include it in response
         },
       });
     } catch (error) {
