@@ -303,23 +303,63 @@ studentRoutes.put(
     try {
       const { id } = req.params;
 
-      // Extract fields
-      const { name, section, course, department } = req.body;
+      // Only extract the specific fields for this route's purpose
+      const {
+        fathersName,
+        fathersNumber,
+        mothersName,
+        mothersNumber,
+        guardian, // Corrected spelling
+        guardiansNumber, // Corrected spelling
+        address,
+      } = req.body;
 
-      // Build update object dynamically, only if field is not blank
+      // Helper function for safe trimming and existence check
+      const getCleanedString = (value) => {
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          return trimmed === "" ? null : trimmed;
+        }
+        // Ignore non-string values (like null, undefined, or numbers if they somehow ended up here)
+        return null;
+      };
+
+      // Build update object dynamically
       const updateData = {};
-      if (name && name.trim() !== "") updateData.name = name;
-      if (section && section.trim() !== "") updateData.section = section;
-      if (course && course.trim() !== "") updateData.course = course;
-      if (department && department.trim() !== "")
-        updateData.department = department;
+
+      // Fields to be checked and added to the update object
+      const fieldsToUpdate = {
+        fathersName,
+        fathersNumber,
+        mothersName,
+        mothersNumber,
+        guardian,
+        guardiansNumber,
+        address,
+      };
+
+      for (const key in fieldsToUpdate) {
+        const cleanedValue = getCleanedString(fieldsToUpdate[key]);
+        if (cleanedValue !== null) {
+          updateData[key] = cleanedValue;
+        }
+      }
+
+      // Check if any valid fields were provided
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No valid family or address fields provided for update.",
+        });
+      }
 
       // Update user
       const updatedUser = await User.findByIdAndUpdate(
         id,
+        // Use $set to only update the fields present in updateData
         { $set: updateData },
         { new: true, runValidators: true }
-      );
+      ).select("-password");
 
       if (!updatedUser) {
         return res
@@ -329,11 +369,11 @@ studentRoutes.put(
 
       res.json({
         success: true,
-        message: "User updated successfully.",
+        message: "User contact information updated successfully.",
         user: updatedUser,
       });
     } catch (error) {
-      console.error("Update error:", error.message);
+      console.error("❌ Update contact information error:", error.message);
       res.status(500).json({ success: false, message: "Server error." });
     }
   }

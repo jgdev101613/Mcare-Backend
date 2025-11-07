@@ -19,6 +19,15 @@ const userSchema = new mongoose.Schema(
     year: { type: Number },
     department: { type: String },
     email: { type: String, required: true, unique: true },
+
+    fathersName: { type: String, default: "" },
+    mothersName: { type: String, default: "" },
+    guardian: { type: String, default: "" },
+    guardiansNumber: { type: String, default: "" },
+    fathersNumber: { type: String, default: "" },
+    mothersNumber: { type: String, default: "" },
+    address: { type: String, default: "" },
+
     group: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Group",

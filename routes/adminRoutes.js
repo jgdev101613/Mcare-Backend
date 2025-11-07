@@ -95,25 +95,84 @@ adminRoutes.put(
         username,
         name,
         section,
-        year,
+        year, // This is a number, like 4
         course,
         department,
         role,
+        fathersName,
+        mothersName,
+        guardian,
+        guardiansNumber,
+        fathersNumber,
+        mothersNumber,
+        address,
       } = req.body;
 
-      // Build update object dynamically (only include non-empty fields)
+      // Build update object dynamically (only include non-empty or non-null fields)
       const updateData = {};
-      if (schoolId && schoolId.trim() !== "")
-        updateData.schoolId = schoolId.trim();
-      if (username && username.trim() !== "")
-        updateData.username = username.trim();
-      if (name && name.trim() !== "") updateData.name = name.trim();
-      if (year && year.trim() !== "") updateData.year = year.trim();
-      if (section && section.trim() !== "") updateData.section = section.trim();
-      if (course && course.trim() !== "") updateData.course = course.trim();
-      if (department && department.trim() !== "")
-        updateData.department = department.trim();
+
+      // Helper function to safely trim and check strings
+      const safeTrim = (value) =>
+        typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+
+      // --- String Fields (apply trim) ---
+      const trimmedSchoolId = safeTrim(schoolId);
+      if (trimmedSchoolId) updateData.schoolId = trimmedSchoolId;
+
+      const trimmedUsername = safeTrim(username);
+      if (trimmedUsername) updateData.username = trimmedUsername;
+
+      const trimmedName = safeTrim(name);
+      if (trimmedName) updateData.name = trimmedName;
+
+      const trimmedSection = safeTrim(section);
+      if (trimmedSection) updateData.section = trimmedSection;
+
+      const trimmedCourse = safeTrim(course);
+      if (trimmedCourse) updateData.course = trimmedCourse;
+
+      const trimmedDepartment = safeTrim(department);
+      if (trimmedDepartment) updateData.department = trimmedDepartment;
+
+      const trimmedFathersName = safeTrim(fathersName);
+      if (trimmedFathersName) updateData.fathersName = trimmedFathersName;
+
+      const trimmedMothersName = safeTrim(mothersName);
+      if (trimmedMothersName) updateData.mothersName = trimmedMothersName;
+
+      const trimmedGuardian = safeTrim(guardian);
+      if (trimmedGuardian) updateData.guardian = trimmedGuardian;
+
+      const trimmedGuardiansNumber = safeTrim(guardiansNumber);
+      if (trimmedGuardiansNumber)
+        updateData.guardiansNumber = trimmedGuardiansNumber;
+
+      const trimmedFathersNumber = safeTrim(fathersNumber);
+      if (trimmedFathersNumber) updateData.fathersNumber = trimmedFathersNumber;
+
+      const trimmedMothersNumber = safeTrim(mothersNumber);
+      if (trimmedMothersNumber) updateData.mothersNumber = trimmedMothersNumber;
+
+      const trimmedAddress = safeTrim(address);
+      if (trimmedAddress) updateData.address = trimmedAddress;
+
+      // --- Number Field (do NOT trim) ---
+      // Check that year is not null/undefined and is not an empty string (which can happen with query params)
+      // Since 0 is a valid value, we only check for null/undefined/""
+      if (year !== undefined && year !== null && year !== "") {
+        updateData.year = year;
+      }
+
+      // --- Role Field (specific validation) ---
       if (role && ["user", "admin"].includes(role)) updateData.role = role;
+
+      // Check if any fields were actually passed to update
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No valid fields provided for update.",
+        });
+      }
 
       const updatedUser = await User.findByIdAndUpdate(
         id,
